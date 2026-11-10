@@ -4,102 +4,148 @@ import numpy as np
 # ==========================================
 # 1. DEFINICIÓN DE CONSTANTES Y COSTOS
 # ==========================================
-# Aquí definimos los tipos de terreno y su costo en batería.
-# Usamos números enteros para representar cada tipo en la matriz.
-TERRENO_LISO = 0      # Costo bajo de batería
-TERRENO_RUGOSO = 1    # Costo moderado
-ARENA_FINA = 2        # Costo alto
-BARRO = 3             # Costo muy alto
-OBSTACULO = -1        # Impasable (paredes/rocas gigantes)
+TERRENO_LISO = 0
+TERRENO_RUGOSO = 1
+ARENA_FINA = 2
+BARRO = 3
+OBSTACULO = -1
 
 COSTOS_BATERIA = {
     TERRENO_LISO: 1,
     TERRENO_RUGOSO: 3,
     ARENA_FINA: 5,
     BARRO: 8,
-    OBSTACULO: float('inf') # Infinito, no se puede pasar
+    OBSTACULO: float('inf')
 }
 
+
 class GeneradorEntornoRover:
-    def __init__(self, ancho=10, alto=10, semilla=42):
-        """
-        Inicializa el generador del entorno.
-        - ancho y alto: Dimensiones de la cuadrícula.
-        - semilla: El número clave para que el mapa sea reproducible.
-        """
+    def __init__(self, ancho=8, alto=8, semilla=42):
         self.ancho = ancho
         self.alto = alto
         self.semilla = semilla
-        
-        # Fijamos la semilla en Python y NumPy para garantizar reproducibilidad exacta
         random.seed(self.semilla)
         np.random.seed(self.semilla)
 
-    def generar_mapa(self, probabilidad_obstaculos=0.15, num_pois=3):
-        """
-        Genera una instancia del mapa de manera aleatoria pero controlada por la semilla.
-        """
-        # Creamos una cuadrícula base utilizando probabilidades para los tipos de terreno:
-        # 50% Liso, 25% Rugoso, 15% Arena, 10% Barro
-        tipos_terreno = [TERRENO_LISO, TERRENO_RUGOSO, ARENA_FINA, BARRO]
-        pesos_probabilidad = [0.50, 0.25, 0.15, 0.10]
-        
-        # Matriz numérica del mapa de terrenos
-        mapa_terrenos = np.random.choice(
-            tipos_terreno, 
-            size=(self.alto, self.ancho), 
-            p=pesos_probabilidad
-        )
-        
-        # Colocamos obstáculos de manera aleatoria según la probabilidad
-        for y in range(self.alto):
-            for x in range(self.ancho):
-                if random.random() < probabilidad_obstaculos:
-                    mapa_terrenos[y, x] = OBSTACULO
+    def _ruta_existe(self, mapa, inicio, objetivo):
+        """Comprueba conectividad con BFS, evitando obstáculos y considerando coste por terreno."""
+        if inicio == objetivo:
+            return True
 
-        # Definimos posiciones especiales de forma segura (ej. Inicio y Zonas de Coms)
-        punto_inicio = (0, 0)
-        mapa_terrenos[punto_inicio] = TERRENO_LISO # Garantizamos que la salida esté libre
-        
-        zona_comunicacion = (self.alto - 1, self.ancho - 1)
-        mapa_terrenos[zona_comunicacion] = TERRENO_LISO # Garantizamos que la base esté libre
+        cola = [inicio]
+        visitados = {inicio}
+        while cola:
+            y, x = cola.pop(0)
+            for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                ny, nx = y + dy, x + dx
+                if 0 <= ny < self.alto and 0 <= nx < self.ancho and (ny, nx) not in visitados:
+                    if mapa[ny, nx] != OBSTACULO:
+                        if (ny, nx) == objetivo:
+                            return True
+                        cola.append((ny, nx))
+                        visitados.add((ny, nx))
+        return False
 
-        # Colocamos los Puntos de Interés (POI) aleatoriamente en casillas que no sean obstáculos
+    def _generar_pois(self, mapa, inicio, zona_comunicacion, num_pois):
         pois = []
-        while len(pois) < num_pois:
-            px = random.randint(0, self.ancho - 1)
-            py = random.randint(0, self.alto - 1)
-            
-            # Evitamos poner un POI justo en el inicio, en la base o sobre un obstáculo
-            if (py, px) != punto_inicio and (py, px) != zona_comunicacion and mapa_terrenos[py, px] != OBSTACULO:
-                if (py, px) not in pois:
-                    pois.append((py, px))
+        usados = {inicio, zona_comunicacion}
+        intentos = 0
 
-        # Empaquetamos todo en un diccionario que representa nuestra "Instancia del Problema"
-        instancia_problema = {
-            "ancho": self.ancho,
-            "alto": self.alto,
-            "semilla": self.semilla,
-            "mapa": mapa_terrenos,
-            "costos": COSTOS_BATERIA,
-            "inicio": punto_inicio,
-            "zona_comunicacion": zona_comunicacion,
-            "pois": pois
-        }
-        
-        return instancia_problema
+        while len(pois) < num_pois and intentos < 500:
+            py = random.randint(0, self.alto - 1)
+            px = random.randint(0, self.ancho - 1)
+            pos = (py, px)
+
+            if pos in usados:
+                intentos += 1
+                continue
+            if mapa[py, px] == OBSTACULO:
+                intentos += 1
+                continue
+            if not self._ruta_existe(mapa, inicio, pos):
+                intentos += 1
+                continue
+
+            pois.append({
+                "id": f"POI_{len(pois) + 1}",
+                "pos": pos,
+                "valor": random.randint(25, 60),
+                "datos": random.randint(3, 8),
+                "prioridad": round(random.uniform(0.7, 1.8), 2),
+                "estado": "pendiente",
+            })
+            usados.add(pos)
+
+        if len(pois) < num_pois:
+            raise RuntimeError("No se pudo generar un conjunto válido de POIs.")
+        return pois
+
+    def generar_mapa(self, probabilidad_obstaculos=0.12, num_pois=3, max_intentos=200):
+        """Genera una instancia con recursos del rover: batería, memoria, zonas de comunicación y POIs."""
+        intentos = 0
+        while intentos < max_intentos:
+            tipos_terreno = [TERRENO_LISO, TERRENO_RUGOSO, ARENA_FINA, BARRO]
+            pesos = [0.50, 0.25, 0.15, 0.10]
+
+            mapa = np.random.choice(tipos_terreno, size=(self.alto, self.ancho), p=pesos)
+
+            for y in range(self.alto):
+                for x in range(self.ancho):
+                    if random.random() < probabilidad_obstaculos:
+                        mapa[y, x] = OBSTACULO
+
+            inicio = (0, 0)
+            mapa[inicio] = TERRENO_LISO
+
+            zona = (self.alto - 1, self.ancho - 1)
+            mapa[zona] = TERRENO_LISO
+
+            # Estaciones de recarga en base y en zona de comunicación.
+            estaciones = [inicio, zona]
+            pois = self._generar_pois(mapa, inicio, zona, num_pois)
+
+            objetivos = [p["pos"] for p in pois] + [zona]
+            if all(self._ruta_existe(mapa, inicio, obj) for obj in objetivos):
+                instancia = {
+                    "ancho": self.ancho,
+                    "alto": self.alto,
+                    "semilla": self.semilla,
+                    "mapa": mapa,
+                    "costos": COSTOS_BATERIA,
+                    "inicio": inicio,
+                    "zona_comunicacion": zona,
+                    "zonas_comunicacion": [zona],
+                    "estaciones_recarga": estaciones,
+                    "ventanas_comunicacion": [
+                        {"inicio": 0, "fin": 12, "lugar": zona},
+                        {"inicio": 16, "fin": 30, "lugar": zona},
+                    ],
+                    "pois": [p["pos"] for p in pois],
+                    "pois_info": pois,
+                    "bateria_inicial": 40,
+                    "bateria_max": 60,
+                    "memoria_inicial": 18,
+                    "memoria_max": 24,
+                    "coste_recoleccion": 2,
+                    "coste_analisis": 5,
+                    "memoria_analisis": 2,
+                    "memoria_transmision": 1,
+                    "recarga_por_ciclo": 22,
+                    "tiempo_maximo": 80,
+                }
+                return instancia
+
+            intentos += 1
+
+        raise RuntimeError("No se pudo generar un mapa soluble tras varios intentos.")
 
 # ==========================================
-# EJEMPLO DE USO (Para probar que funcione)
+# PRUEBA RÁPIDA
 # ==========================================
 if __name__ == "__main__":
-    # Creamos un generador con un mapa de 8x8 y semilla 123
-    mi_generador = GeneradorEntornoRover(ancho=8, alto=8, semilla=123)
-    mapa_prueba = mi_generador.generar_mapa(probabilidad_obstaculos=0.1, num_pois=3)
-
-    print(f"--- MAPA GENERADO (Semilla: {mapa_prueba['semilla']}) ---")
-    print(f"Posición de Inicio (Rover): {mapa_prueba['inicio']}")
-    print(f"Zona de Comunicación: {mapa_prueba['zona_comunicacion']}")
-    print(f"Puntos de Interés (POI): {mapa_prueba['pois']}\n")
-    print("Matriz del Terreno (Leyes: -1=Obstáculo, 0=Liso, 1=Rugoso, 2=Arena, 3=Barro):")
-    print(mapa_prueba['mapa'])
+    generador = GeneradorEntornoRover(ancho=8, alto=8, semilla=42)
+    instancia = generador.generar_mapa(probabilidad_obstaculos=0.12, num_pois=3)
+    print("Inicio:", instancia["inicio"])
+    print("Zonas de comunicación:", instancia["zonas_comunicacion"])
+    print("POIs:", instancia["pois"])
+    print(instancia["mapa"])

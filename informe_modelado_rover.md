@@ -242,3 +242,65 @@ Esto es la base sólida para continuar con la siguiente fase del proyecto: plani
 El trabajo realizado ha sido clave para pasar de un prototipo conceptual a un modelo de misión más realista y apropiado para la asignatura. El proyecto ya incluye la parte central que faltaba: el rover deja de ser un punto móvil y se convierte en un agente que toma decisiones bajo restricciones de energía, memoria y comunicación.
 
 Este modelado es la base necesaria para implementar la siguiente capa del proyecto: optimización mediante metaheurísticas y procedimientos de planificación o CSP.
+
+
+
+
+
+Read [](file:///d%3A/Escuela/4_Primer%20semestre/IA/Rover-autonomo/modelo_rover.py)
+
+Created [](file:///d%3A/Escuela/4_Primer%20semestre/IA/Rover-autonomo/metaheuristicas_rover.py)
+
+Ran terminal command: python -c "from entorno_gen import GeneradorEntornoRover; from metaheuristicas_rover import MetaheuristicasRover; e=GeneradorEntornoRover(ancho=8,alto=8,semilla=42).generar_mapa(probabilidad_obstaculos=0.12,num_pois=5); m=MetaheuristicasRover(e, semilla=42); print(m.comparar_algoritmos())"
+
+He dejado ya integrado el módulo de metaheurísticas en el proyecto.
+
+Archivo nuevo:
+- metaheuristicas_rover.py
+
+Qué hace:
+- ordena los POIs a visitar
+- evalúa soluciones por coste total y puntuación
+- compara distintas estrategias:
+  - greedy
+  - hill climbing
+  - simulated annealing
+
+Por qué es necesario:
+- el problema de decidir qué POIs visitar y en qué orden no es trivial
+- además hay restricciones de batería, memoria y comunicación
+- la combinación de varios objetivos y recursos hace que un enfoque exacto sea poco escalable
+- por eso una metaheurística es adecuada: explora soluciones buenas en tiempo razonable sin tener que evaluar todas las permutaciones posibles
+
+Justificación técnica:
+- ordenar POIs es un problema de tipo combinatorio
+- si hay n objetivos, el número de ordenaciones crece como n!
+- con recursos y rutas reales, la evaluación de cada orden exige calcular costes de desplazamiento y penalizar batería/memoria
+- para ese tipo de problemas las metaheurísticas son útiles porque ofrecen soluciones competitivas y robustas
+
+La estrategia implementada:
+- construcción inicial por criterio valor/distancia
+- mejora local con swaps
+- refinado con annealing
+
+Comparación:
+- la función `comparar_algoritmos()` devuelve una lista con coste, puntuación y éxito de cada estrategia
+- esto es lo que necesitas para cumplir la parte experimental del enunciado
+
+Validación:
+- ejecuté el módulo y comprobé que las estrategias generan resultados coherentes sobre una instancia de prueba
+- el pequeño caso no diferencia mucho entre métodos, pero la estructura ya está lista para comparar varias semillas e instancias
+
+Texto listo para poner en el informe:
+
+El módulo de metaheurísticas se ha implementado para resolver el problema de ordenación de la secuencia de visita a los puntos de interés. En este problema, la decisión no consiste solo en elegir qué objetivos visitar, sino también en el orden óptimo de visita, teniendo en cuenta el coste de desplazamiento, la batería disponible, la memoria del rover y la necesidad de volver a una zona de comunicación para transmitir la información. Como cada POI puede tener distinto valor, prioridad y consumo de recursos, el problema de encontrar la mejor ruta de misión se convierte en una optimización combinatoria con restricciones.
+
+Para ello, se han comparado varias estrategias metaheurísticas: una construcción inicial greedy, una mejora local por intercambio de POIs y una búsqueda basada en simulated annealing. La heurística greedy construye una solución ordenando los objetivos por una relación entre valor y coste de desplazamiento. A continuación, la mejora local realiza swaps para reducir el coste total o incrementar la puntuación. Finalmente, la estrategia de annealing permite escapar de óptimos locales y explorar soluciones alternativas más prometedoras.
+
+La justificación del uso de metaheurísticas es clara: el problema de optimización del orden de visita no puede resolverse de forma exacta de manera eficiente en todas las instancias, ya que el espacio de soluciones crece exponencialmente con el número de POIs. Además, las restricciones dinámicas del rover hacen que la evaluación de cada solución dependa de la ruta real, del consumo energético y de la disponibilidad de memoria y comunicación. Por ello, una metaheurística es una opción adecuada para obtener soluciones robustas y de alta calidad en tiempo razonable.
+
+La comparación experimental entre estrategias se realiza sobre la misma instancia y se reporta en términos de coste total, puntuación acumulada y tasa de éxito. Este análisis permite evaluar no solo la calidad de la solución, sino también la estabilidad de cada método ante cambios en el entorno. En consecuencia, el módulo de metaheurísticas no solo ordena los objetivos, sino que permite ajustar parámetros relevantes de la misión, como la prioridad de los POIs y la estrategia de navegación, y aporta una base experimental para comparar algoritmos bajo el mismo presupuesto computacional.
+
+Si quieres, sigo con la siguiente parte: la comparación experimental completa con varias semillas e instancias, para dejarlo listo para el informe final.
+
+Made changes.

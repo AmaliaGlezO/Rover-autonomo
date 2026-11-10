@@ -123,15 +123,77 @@ La acción `transmitir()`:
 
 Esto modela la fase final de la misión de exploración.
 
-## 5. Integración de la Búsqueda con la misión
+## 5. Módulo de planificación del rover
 
-Una parte importante del trabajo es precisamente esta conexión:
+Además del modelado del entorno y del rover, se ha implementado un módulo de planificación de alto nivel para representar la misión como una secuencia de decisiones. Esta parte es esencial porque el enunciado exige elegir entre planificación o CSP y el proyecto debe modelar la misión como un conjunto de acciones con precondiciones y efectos.
 
-- El entorno genera un mapa con costes por tipo de terreno.
-- El módulo de búsqueda A* calcula rutas con coste real.
-- El rover usa esas rutas para desplazarse desde su posición a un POI, a una estación de recarga o a la zona de comunicación.
+### 5.1 Idea del enfoque
 
-Así, la búsqueda deja de ser una prueba aislada y pasa a ser un componente funcional del sistema de decisión del rover.
+La planificación se realiza en dos niveles:
+
+1. Nivel alto: el planificador decide la secuencia de acciones de misión.
+2. Nivel bajo: el módulo de búsqueda A* calcula el camino concreto para mover al rover entre dos posiciones del mapa.
+
+Esto refleja la lógica del problema: el planificador decide qué hacer, mientras la búsqueda resuelve cómo desplazarse. Esta separación es muy útil en robótica y planificación autónoma, porque permite desacoplar la decisión estratégica del movimiento físico.
+
+### 5.2 Acciones del plan
+
+Se han definido las siguientes acciones como parte de la misión:
+
+- `mover(destino)`: lleva al rover a un punto del mapa.
+- `recoger(poi_id)`: recoge los datos del POI en la posición actual.
+- `analizar(poi_id)`: procesa los datos adquiridos.
+- `transmitir`: envía la información en la zona de comunicación.
+
+Cada una de estas acciones tiene sentido dentro del problema real del rover. Por ejemplo, `recoger` solo puede ejecutarse si el rover está sobre el POI y si dispone de memoria suficiente. `analizar` solo ocurre si el POI ya ha sido recogido. `transmitir` solo puede hacerse en una zona de comunicación.
+
+### 5.3 Precondiciones y efectos
+
+Aunque el proyecto no usa un planner externo completo, la idea del dominio de planificación se refleja en la lógica de ejecución del rover:
+
+- Precondiciones:
+  - el rover debe estar en la celda correcta
+  - debe haber batería suficiente para mover o analizar
+  - debe existir memoria suficiente para almacenar o transmitir datos
+  - las zonas de comunicación solo se usan en el lugar correspondiente
+
+- Efectos:
+  - la posición cambia al moverse
+  - el estado del POI cambia de `pendiente` a `recogido` o `analizado`
+  - la batería disminuye por movimiento y análisis
+  - la memoria disminuye por recolección, análisis y transmisión
+  - la puntuación aumenta al completar una misión útil
+
+Esto hace que el sistema tenga una estructura muy parecida a un modelo de planificación clásico: acciones, precondiciones y efectos.
+
+### 5.4 Integración en el código
+
+El archivo `planificador_rover.py` implementa esta capa. Su función principal es:
+
+- ordenar los POIs por prioridad y valor
+- construir un plan de alto nivel
+- ejecutar paso a paso cada acción sobre el rover
+- recurrir a la búsqueda A* para mover por el mapa
+
+La misión se organiza de la siguiente forma:
+
+- visitar cada POI relevante
+- recoger sus datos
+- analizar la información
+- dirigirse a la zona de comunicación
+- transmitir los resultados
+
+Si la batería baja, el planificador fuerza una recarga antes de continuar. Esto vuelve a la planificación más realista, porque introduce una restricción operativa muy importante: la energía no es infinita y debe gestionarse.
+
+### 5.5 Valor del módulo de planificación
+
+Este módulo aporta tres ventajas esenciales:
+
+1. Da estructura a la misión: el rover no solo explora, sino que realiza tareas con una secuencia lógica.
+2. Hace explícitas las restricciones del problema: recolección, análisis, comunicación y energía.
+3. Conecta los módulos del proyecto: entorno, búsqueda y misión final.
+
+Por tanto, la planificación no es una adición ornamental: es la capa que convierte el problema de navegación en un problema de misión autónoma completa.
 
 ## 6. Qué incorpora el nuevo entorno
 

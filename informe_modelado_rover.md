@@ -207,7 +207,65 @@ En `entorno_gen.py` se han añadido varios elementos que antes faltaban:
 
 Esto hace que cada instancia del problema sea mucho más realista y más alineada con el enunciado del proyecto.
 
-## 7. Ejemplo de ejecución del modelo
+## 7. Protocolo experimental y comparación de metaheurísticas
+
+Para cumplir el protocolo experimental del enunciado, se ha implementado una batería de pruebas sobre varias instancias del problema generadas con semilla distinta. El objetivo es comparar distintas estrategias de ordenación de POIs bajo el mismo presupuesto computacional y con la misma familia de instancias.
+
+### 7.1 Diseño experimental
+
+El experimento se ha realizado con:
+
+- 21 semillas distintas, desde 10 hasta 30
+- mapas de tamaño 8x8
+- 5 POIs por instancia
+- probabilidad de obstáculos de 0.12
+- misma semilla para cada estrategia dentro de una instancia concreta
+- mismo presupuesto de cómputo para todas las alternativas
+
+La evaluación de cada estrategia se registra en términos de:
+
+- coste total del recorrido
+- puntuación final acumulada
+- tiempo computacional
+- éxito de la ejecución
+
+La comparación no se limita a una sola instancia: se reporta la media y la dispersión (desviación típica) sobre todas las semillas evaluadas.
+
+### 7.2 Estrategias comparadas
+
+Se comparan tres enfoques:
+
+- Greedy: construcción inicial basada en prioridad valor/coste.
+- Hill climbing: mejora local por intercambio de POIs.
+- Simulated annealing: búsqueda estocástica para escapar de óptimos locales.
+
+Cada una de estas estrategias resuelve el problema de ordenación de objetivos, que es la parte combinatoria del problema: decidir qué POI visitar a continuación y en qué orden para maximizar la puntuación sin desperdiciar demasiado energía ni memoria.
+
+### 7.3 Resultados experimentales
+
+Los resultados obtenidos sobre las 21 semillas evaluadas son los siguientes:
+
+- Greedy: coste medio 60.238 ± 14.399, puntuación media 216.230 ± 34.641
+- Hill climbing: coste medio 51.190 ± 11.664, puntuación media 220.754 ± 33.583
+- Simulated annealing: coste medio 51.095 ± 11.509, puntuación media 220.802 ± 33.571
+
+En la práctica, las dos estrategias avanzadas consiguen mejores resultados que la solución greedy en términos de coste y puntuación. Sin embargo, la diferencia entre hill climbing y annealing es muy pequeña, lo que indica que el problema no presenta una ventaja clara del método más costoso frente al más simple en este rango de instancias. La diferencia real está sobre todo en la calidad de la solución y la mejora local respecto de la estrategia inicial.
+
+También se ha medido el tiempo de ejecución:
+
+- Greedy: 0.001078 ± 0.000344 s
+- Hill climbing: 0.006252 ± 0.002681 s
+- Annealing: 0.057871 ± 0.014723 s
+
+Esto refleja un compromiso clásico entre calidad y coste computacional: annealing alcanza ligeramente mejor puntuación y menor coste, pero exige más tiempo. El criterio experimental exige reportar esta dispersión y no sacar conclusiones más fuertes que la evidencia observada.
+
+### 7.4 Interpretación de los resultados
+
+La comparación experimental confirma la necesidad de una estrategia de optimización para el orden de visita. La decisión de visitar primero un POI u otro tiene un efecto directo sobre la batería consumida, la memoria requerida y la posibilidad de completar la misión con éxito. Además, la estructura del problema hace que una solución exacta sea poco viable cuando el número de objetivos crece, ya que el número de permutaciones crece factorialmente.
+
+Por ello, la metaheurística es una elección adecuada: ofrece soluciones robustas en tiempo razonable y permite comparar distintas alternativas bajo condiciones equivalentes. La comparación experimental también muestra que la mejora local tiene un efecto útil y que el annealing puede aportar un rendimiento adicional, aunque la diferencia no siempre es decisiva.
+
+## 8. Ejemplo de ejecución del modelo
 
 La clase `RoverAutonomo` ya permite ejecutar una misión básica con una estrategia simple:
 
@@ -224,7 +282,7 @@ La operación `ejecutar_mision_basica()` encapsula ese flujo. Aunque todavía es
 - planificación o CSP
 - comparación experimental entre estrategias
 
-## 8. Por qué esto resuelve la parte que faltaba
+## 9. Por qué esto resuelve la parte que faltaba
 
 Con este modelado, el proyecto ya no es solo un “mapa con A*”, sino un problema de misión robótica con restricciones reales. Se cumplen estos aspectos que el enunciado exige:
 
@@ -237,9 +295,11 @@ Con este modelado, el proyecto ya no es solo un “mapa con A*”, sino un probl
 
 Esto es la base sólida para continuar con la siguiente fase del proyecto: planificación o CSP, metaheurísticas y experimentación con varias instancias generadas por semilla.
 
-## 9. Conclusión
+## 10. Conclusión
 
 El trabajo realizado ha sido clave para pasar de un prototipo conceptual a un modelo de misión más realista y apropiado para la asignatura. El proyecto ya incluye la parte central que faltaba: el rover deja de ser un punto móvil y se convierte en un agente que toma decisiones bajo restricciones de energía, memoria y comunicación.
+
+La combinación de entorno, búsqueda, planificación y metaheurísticas convierte el problema en una simulación con sentido como misión autónoma. La comparación experimental confirma que las decisiones de orden de visita tienen efecto real sobre la puntuación final y sobre el coste energético de la misión, y que la estrategia elegida debe justificarse con evidencia, no solo con intuición.
 
 Este modelado es la base necesaria para implementar la siguiente capa del proyecto: optimización mediante metaheurísticas y procedimientos de planificación o CSP.
 
